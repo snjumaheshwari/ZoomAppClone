@@ -1,13 +1,13 @@
 const mongoose = require('mongoose')
 
 let RoomIDSchema = new mongoose.Schema({
-    RoomID: {
+    Room: {
         type: String,
         require:true,
         trim:true,
     }
-})
+},{collection:'RoomID'})
 
-let RoomID = mongoose.model('Rooms', RoomIDSchema);
+let RoomID = mongoose.model('RoomID', RoomIDSchema);
 
 module.exports = RoomID;

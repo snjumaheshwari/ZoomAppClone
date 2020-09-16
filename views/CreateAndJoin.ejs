@@ -30,8 +30,8 @@
 
                     <div class="inputId">
                         <input onchange="handleInput()" type="text" id="inputRoomId" placeholder="Enter room ID..." name="RoomID"><br>
-                        <% if(!Error){ %>
-                            <small class="errorMessage">Invalid Room ID</small>
+                        <% if(Error){ %>
+                            <small class="errorMessage"><%= Error %></small>
                         <% } %>
                     </div>
 

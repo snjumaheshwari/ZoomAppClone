@@ -5,21 +5,19 @@ const bodyParser = require('body-parser');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const server = require('http').Server(app);
-const { v4: uuidv4 } = require('uuid');
-const flash = require('connect-flash');
+// const { v4: uuidv4 } = require('uuid');
 const io = require('socket.io')(server)
 const { ExpressPeerServer } = require('peer');
+const joinRoom = require('./controllers/JoinRoom')
+const createRoom = require('./controllers/CreateRoom')
 const peerServer = ExpressPeerServer(server, {
     debug: true
 });
 
-// mongoose.connect('mongodb+srv://zoomApp:ZoomApp.123@zoomapproomids.lrkid.mongodb.net/ZoomRoom?retryWrites=true&w=majority&ssl=true', { useNewUrlParser: true, useUnifiedTopology: true })
-// .then(()=>{
-//     console.log("DB Connected");
-// })
-// .catch((err)=>{
-//     console.log(err);
-// })
+
+mongoose.connect('mongodb://127.0.0.1:27017/RoomIDS', { useNewUrlParser: true, useUnifiedTopology: true })
+    .then(() => console.log('MongoDB Connected...'))
+    .catch((err) => console.log(err))
 
 
 
@@ -32,27 +30,31 @@ app.use(cors());
 app.use('/peerjs', peerServer);
 
 app.get('/', (req, res) => {
-    res.render('CreateAndJoin', { Error: true })
+    res.render('CreateAndJoin', { Error: false })
 })
 
-const RoomIDS = {
-    gfx6TZ: '976ab74c-5856-4418-9c1b-7475863c9da0'
-}
 
-app.post('/', (req, res) => {
+app.post('/', async (req, res) => {
     let data = req.body
-    if (data.roomType === 'Create Room') {
-        req.app.set('UserName', req.body.UserName)
-        res.redirect(`${uuidv4()}`)
-    }
-    else if (data.roomType === 'Join Room') {
-        if (RoomIDS.hasOwnProperty(data.RoomID)) {
+
+    if (data.roomType == 'Create Room') {
+        let inputRoomID = req.body.RoomID
+        let NewRoom = await createRoom(inputRoomID)
+        if (NewRoom) {
             req.app.set('UserName', req.body.UserName)
-            res.redirect(`${RoomIDS[data.RoomID]}`)
+            res.redirect(`${NewRoom._id}`)
         }
-        else {
-            res.render('CreateAndJoin', { Error: false })
+        res.render('CreateAndJoin', { Error: "Room ID Already Exists" })
+    }
+
+    if (data.roomType == 'Join Room') {
+        let inputRoomID = req.body.RoomID
+        const ID = await joinRoom(inputRoomID);
+        if (ID[0]) {
+            req.app.set('UserName', req.body.UserName)
+            res.redirect(`${ID[0]._id}`)
         }
+        res.render('CreateAndJoin', { Error: "Room ID Does Not Exist" })
     }
 })
 
@@ -72,8 +74,9 @@ io.on('connection', (socket) => {
         else {
             RoomUsers[RoomID] = [[UserName, userID]]
         }
-        socket.to(RoomID).broadcast.emit("user-connected", userID, UserName, RoomUsers[RoomID])
 
+
+        socket.to(RoomID).broadcast.emit("user-connected", userID, UserName, RoomUsers[RoomID])
         socket.on('message', (message, UserName) => {
             if (RoomID in Messages) {
                 Messages[RoomID].push([UserName, message])
@@ -85,8 +88,8 @@ io.on('connection', (socket) => {
         })
 
         socket.on('disconnect', () => {
-            RoomUsers[RoomID] = RoomUsers[RoomID].filter((Users)=>{
-                if(Users[1]!=userID){
+            RoomUsers[RoomID] = RoomUsers[RoomID].filter((Users) => {
+                if (Users[1] != userID) {
                     return Users
                 }
             })
