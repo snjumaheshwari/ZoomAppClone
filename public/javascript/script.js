@@ -1,5 +1,7 @@
 const socket = io('/')
 const videoGrid = document.querySelector('#video-grid');
+const selfVideo = document.querySelector('.self');
+
 const myVideo = document.createElement('video');
 myVideo.muted = true;
 
@@ -85,13 +87,22 @@ const disconnectToUser = () => {
 
 const addVideoStream = (video, stream, userVideo) => {
     video.srcObject = stream;
+    video.setAttribute("controlslist",'fullscreen');
+
     if (userVideo) {
-        video.id = "myVideoStream"
+        video.id = "myVideoStream";
+        video.addEventListener('loadedmetadata', () => {
+            video.play();
+        })
+        selfVideo.append(video);
     }
-    video.addEventListener('loadedmetadata', () => {
-        video.play();
-    })
-    videoGrid.append(video)
+    else {
+        video.addEventListener('loadedmetadata', () => {
+            video.play();
+        })
+        videoGrid.append(video)
+    }
+
 }
 
 const scrollToBottom = () => {
@@ -141,6 +152,7 @@ const setStopVideo = () => {
       <i class="fas fa-video"></i>
       <span>Stop Video</span>
     `
+    document.querySelector('.avatar').style.display = 'none';
     document.querySelector('.main_video_button').innerHTML = html;
 }
 
@@ -149,6 +161,7 @@ const setPlayVideo = () => {
     <i class="active fas fa-video-slash"></i>
       <span>Play Video</span>
     `
+    document.querySelector('.avatar').style.display = 'flex';
     document.querySelector('.main_video_button').innerHTML = html;
 }
 

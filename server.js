@@ -5,7 +5,6 @@ const bodyParser = require('body-parser');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const server = require('http').Server(app);
-// const { v4: uuidv4 } = require('uuid');
 const io = require('socket.io')(server)
 const { ExpressPeerServer } = require('peer');
 const joinRoom = require('./controllers/JoinRoom')
