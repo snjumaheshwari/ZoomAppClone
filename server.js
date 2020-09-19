@@ -76,6 +76,7 @@ io.on('connection', (socket) => {
 
 
         socket.to(RoomID).broadcast.emit("user-connected", userID, UserName, RoomUsers[RoomID])
+
         socket.on('message', (message, UserName) => {
             if (RoomID in Messages) {
                 Messages[RoomID].push([UserName, message])

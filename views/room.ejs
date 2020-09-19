@@ -17,7 +17,7 @@
   </script>
 </head>
 
-<body>
+<body onload="UserMediaStream()">
 
   <div class="main">
     <div class="main_left">
@@ -46,9 +46,9 @@
         </div>
 
         <div class="main_controls_block">
-          <div class="main_controls_button">
-            <i class="fas fa-shield-alt"></i>
-            <span>Security</span>
+          <div onclick="SwitchScreen()" class="main_controls_button">
+            <i class="fas fa-desktop"></i>
+            <span id="screenSharing">Share Screen</span>
           </div>
 
           <div onclick="showParticipants()" class="main_controls_button">

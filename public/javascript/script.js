@@ -1,7 +1,6 @@
 const socket = io('/')
 const videoGrid = document.querySelector('#video-grid');
 const selfVideo = document.querySelector('.self');
-
 const myVideo = document.createElement('video');
 myVideo.muted = true;
 
@@ -16,43 +15,106 @@ let connectedUsers;
 let myVideoStream;
 let currentUser;
 
-navigator.mediaDevices.getUserMedia({
-    video: true,
-    audio: true,
-}).then((stream) => {
-    myVideoStream = stream;
-    addVideoStream(myVideo, stream, true);
+let streamType = "UserMedia";
 
-    peer.on('call', call => {
-        call.answer(stream)
+const UserMedia = () => {
+    return navigator.mediaDevices.getUserMedia({
+        video: true,
+        audio: true,
+    })
+}
 
-        const video = document.createElement('video')
-        call.on('stream', userVideoStream => {
-            addVideoStream(video, userVideoStream, false)
+const DisplayMedia = () => {
+    return navigator.mediaDevices.getDisplayMedia({
+        video: {
+            mediaSource: 'window' || 'screen'
+        },
+        audio: true,
+    })
+}
+
+const SwitchScreen = () => {
+    if (streamType == 'UserMedia') {
+        UserDisplayMediaStream();
+        document.querySelector('#screenSharing').innerHTML = 'Stop Sharing';
+
+    }
+    else {
+        document.querySelector('#screenSharing').innerHTML = 'Share Screen';
+        StopDisplayMediaStream();
+        UserMediaStream();
+    }
+}
+
+const UserMediaStream = () => {
+    streamType = "UserMedia";
+
+    UserMedia().then((stream) => {
+        myVideoStream = stream;
+        addVideoStream(myVideo, stream, true);
+
+        peer.on('call', call => {
+            call.answer(stream)
+
+            const video = document.createElement('video')
+            call.on('stream', userVideoStream => {
+                addVideoStream(video, userVideoStream, false)
+            })
+        })
+
+        socket.on('user-connected', (userID, UserName, RoomUsers) => {
+            connecToNewUser(userID, stream, UserName);
+            currentUser = userID;
+            connectedUsers = [...RoomUsers];
         })
     })
+}
 
-    socket.on('user-connected', (userID, UserName, RoomUsers) => {
-        connecToNewUser(userID, stream, UserName);
-        currentUser = userID;
-        connectedUsers = [...RoomUsers];
+const UserDisplayMediaStream = () => {
+    document.querySelector('.fa-desktop').classList.add('active');
+    streamType = "UserDisplay";
+
+    DisplayMedia().then((stream) => {
+        myVideoStream = stream;
+        addVideoStream(myVideo, stream, true);
+
+        peer.on('call', call => {
+            call.answer(stream)
+
+            const video = document.createElement('video')
+            call.on('stream', userVideoStream => {
+                addVideoStream(video, userVideoStream, false)
+            })
+        })
+
+        socket.on('user-connected', (userID, UserName, RoomUsers) => {
+            connecToNewUser(userID, stream, UserName);
+            currentUser = userID;
+            connectedUsers = [...RoomUsers];
+        })
     })
+}
 
 
-    let text = $('input')
+const StopDisplayMediaStream = () => {
+    document.querySelector('.fa-desktop').classList.remove('active');
+    myVideoStream.getTracks()
+        .forEach(track => track.stop())
+}
 
-    $('html').keydown((event) => {
-        if (event.which == 13 && text.val().length != 0) {
-            socket.emit('message', text.val(), UserName);
-            text.val('');
-        }
-    })
+let text = $('input')
 
-    socket.on('createMessage', (message, UserName, Messages) => {
-        $('.messages').append(`<li class="message"><span>${UserName}</span>: ${message}<li>`)
-        messageBox = [...Messages];
-        scrollToBottom()
-    })
+$('html').keydown((event) => {
+    if (event.which == 13 && text.val().length != 0) {
+        socket.emit('message', text.val(), UserName);
+        text.val('');
+    }
+})
+
+socket.on('createMessage', (message, UserName, Messages) => {
+    $('.messages').append(`<li class="message"><span>${UserName}</span>: ${message}<li>`)
+    messageBox = [...Messages];
+    scrollToBottom()
 })
 
 socket.on('user-disconnect', (userID) => {
@@ -87,22 +149,27 @@ const disconnectToUser = () => {
 
 const addVideoStream = (video, stream, userVideo) => {
     video.srcObject = stream;
-    video.setAttribute("controlslist",'fullscreen');
-
+    div = document.createElement('div');
+    i = document.createElement('i');
+    div.setAttribute('class', 'frame');
+    i.setAttribute('class', 'fas fa-expand');
     if (userVideo) {
         video.id = "myVideoStream";
+        div.appendChild(i)
+        div.appendChild(video)
         video.addEventListener('loadedmetadata', () => {
             video.play();
         })
-        selfVideo.append(video);
+        selfVideo.append(div);
     }
     else {
+        div.appendChild(i)
+        div.appendChild(video)
         video.addEventListener('loadedmetadata', () => {
             video.play();
         })
-        videoGrid.append(video)
+        videoGrid.append(div)
     }
-
 }
 
 const scrollToBottom = () => {
@@ -197,3 +264,34 @@ const showChatWindow = () => {
     }
 
 }
+
+let flag = false;
+
+setTimeout(() => {
+    const windowSize = $(window);
+    const height = windowSize.height();
+    const width = windowSize.width();
+
+    let expand = document.getElementsByClassName('fa-expand')[0];
+    expand.addEventListener('click', (event) => {
+        if (!flag) {
+            $('.self').css('width', '100vh');
+            $('.self').css('height', '75vh');
+            let videoEle = event.target.nextElementSibling;
+            marginLeftAdjust = width / 2;
+            videoEle.style.height = height - 100;
+            videoEle.style.width = width;
+            flag = true;
+        }
+        else {
+            $('.self').css('width', '300px');
+            $('.self').css('height', '250px');
+            let videoEle = event.target.nextElementSibling;
+            videoEle.style.height = 250;
+            videoEle.style.width = 300;
+            flag = false;
+        }
+
+    })
+}, 5000);
+
