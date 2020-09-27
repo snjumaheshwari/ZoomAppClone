@@ -2,6 +2,13 @@ const socket = io('/')
 const videoGrid = document.querySelector('#video-grid');
 const selfVideo = document.querySelector('.self');
 const myVideo = document.createElement('video');
+const myDiv = document.createElement('div');
+const preview = document.createElement('video');
+const resize = document.createElement('i');
+const recBtn = document.createElement('i');
+const downloadBtn = document.createElement('i');
+let recordingTimeMS = 5000;
+let resizeStatus = false;
 myVideo.muted = true;
 
 var peer = new Peer(undefined, {
@@ -9,12 +16,18 @@ var peer = new Peer(undefined, {
     host: '/',
     port: 8080
 })
+
 let peerUsers = {};
 let messageBox;
 let connectedUsers;
 let myVideoStream;
 let currentUser;
+let mediaRecorder;
+let recordedBlobs;
 
+let flag = false;
+let recordingStatus = false;
+let enableDownload = false;
 let streamType = "UserMedia";
 
 const UserMedia = () => {
@@ -35,13 +48,14 @@ const DisplayMedia = () => {
 
 const SwitchScreen = () => {
     if (streamType == 'UserMedia') {
+        StopMediaStream();
         UserDisplayMediaStream();
         document.querySelector('#screenSharing').innerHTML = 'Stop Sharing';
 
     }
     else {
         document.querySelector('#screenSharing').innerHTML = 'Share Screen';
-        StopDisplayMediaStream();
+        StopMediaStream();
         UserMediaStream();
     }
 }
@@ -51,14 +65,16 @@ const UserMediaStream = () => {
 
     UserMedia().then((stream) => {
         myVideoStream = stream;
-        addVideoStream(myVideo, stream, true);
+        addVideoStream(myDiv, myVideo, stream, true, resize, recBtn, downloadBtn);
+        window.stream = stream;
 
         peer.on('call', call => {
             call.answer(stream)
 
-            const video = document.createElement('video')
+            const video = document.createElement('video');
+            const div = document.createElement('div');
             call.on('stream', userVideoStream => {
-                addVideoStream(video, userVideoStream, false)
+                addVideoStream(myDiv, myVideo, stream, true);
             })
         })
 
@@ -76,14 +92,16 @@ const UserDisplayMediaStream = () => {
 
     DisplayMedia().then((stream) => {
         myVideoStream = stream;
-        addVideoStream(myVideo, stream, true);
+        addVideoStream(myDiv, myVideo, stream, true, resize, recBtn, downloadBtn);
+        window.stream = stream;
 
         peer.on('call', call => {
             call.answer(stream)
 
-            const video = document.createElement('video')
+            const video = document.createElement('video');
+            const div = document.createElement('div');
             call.on('stream', userVideoStream => {
-                addVideoStream(video, userVideoStream, false)
+                addVideoStream(div, video, userVideoStream, false)
             })
         })
 
@@ -92,11 +110,11 @@ const UserDisplayMediaStream = () => {
             currentUser = userID;
             connectedUsers = [...RoomUsers];
         })
-    })
+    });
 }
 
 
-const StopDisplayMediaStream = () => {
+const StopMediaStream = () => {
     document.querySelector('.fa-desktop').classList.remove('active');
     myVideoStream.getTracks()
         .forEach(track => track.stop())
@@ -131,9 +149,10 @@ peer.on('open', id => {
 
 const connecToNewUser = (userID, stream) => {
     const call = peer.call(userID, stream);
+    const div = document.createElement('div');
     const video = document.createElement('video');
     call.on('stream', (userVideoStream) => {
-        addVideoStream(video, userVideoStream, false)
+        addVideoStream(div, video, userVideoStream, false)
     })
 }
 
@@ -147,29 +166,37 @@ const disconnectToUser = () => {
     window.location.href = "http://127.0.0.1:8080/";
 }
 
-const addVideoStream = (video, stream, userVideo) => {
+const addVideoStream = (div, video, stream, userVideo, resize, recBtn, downloadBtn) => {
     video.srcObject = stream;
-    div = document.createElement('div');
-    i = document.createElement('i');
     div.setAttribute('class', 'frame');
-    i.setAttribute('class', 'fas fa-expand');
+
     if (userVideo) {
         video.id = "myVideoStream";
-        div.appendChild(i)
-        div.appendChild(video)
-        video.addEventListener('loadedmetadata', () => {
-            video.play();
-        })
-        selfVideo.append(div);
+        resize.setAttribute('class', 'fas fa-expand');
+        resize.onclick = resizeVideo;
+        recBtn.setAttribute('class', 'fas fa-circle');
+        downloadBtn.setAttribute('class', 'fas fa-download');
+        recBtn.id = 'recBtn';
+        recBtn.onclick = recorder;
+        div.append(resize)
+        div.append(recBtn)
+        div.append(downloadBtn)
     }
     else {
-        div.appendChild(i)
-        div.appendChild(video)
-        video.addEventListener('loadedmetadata', () => {
-            video.play();
-        })
-        videoGrid.append(div)
+        const resize = document.createElement('i');
+
+        resize.setAttribute('class', 'fas fa-expand');
+        resize.onclick = resizeVideo;
+
+        div.append(resize)
     }
+
+    video.addEventListener('loadedmetadata', () => {
+        video.play();
+    })
+    div.appendChild(video)
+    videoGrid.append(div);
+
 }
 
 const scrollToBottom = () => {
@@ -193,9 +220,11 @@ const stopPlay = () => {
     const enabled = myVideoStream.getVideoTracks()[0].enabled;
     if (enabled) {
         myVideoStream.getVideoTracks()[0].enabled = false;
+        StopMediaStream();
         setPlayVideo();
     } else {
         setStopVideo();
+        UserMediaStream();
         myVideoStream.getVideoTracks()[0].enabled = true;
     }
 }
@@ -265,33 +294,98 @@ const showChatWindow = () => {
 
 }
 
-let flag = false;
 
-setTimeout(() => {
-    const windowSize = $(window);
-    const height = windowSize.height();
-    const width = windowSize.width();
 
-    let expand = document.getElementsByClassName('fa-expand')[0];
-    expand.addEventListener('click', (event) => {
-        if (!flag) {
-            $('.self').css('width', '100vh');
-            $('.self').css('height', '75vh');
-            let videoEle = event.target.nextElementSibling;
-            marginLeftAdjust = width / 2;
-            videoEle.style.height = height - 100;
-            videoEle.style.width = width;
-            flag = true;
+const recorder = () => {
+    if (recordingStatus) {
+        recBtn.classList.add('fas', 'fa-circle');
+        recBtn.classList.remove('fa-pause');
+        recordingStatus = false;
+        stopRecording();
+    }
+    else {
+        recordingStatus = true;
+        enableDownload = true;
+        recBtn.classList.remove('fa-circle');
+        recBtn.classList.add('fas', 'fa-pause');
+        if (enableDownload) {
+            $('.fa-download').css('display', 'flex');
         }
-        else {
-            $('.self').css('width', '300px');
-            $('.self').css('height', '250px');
-            let videoEle = event.target.nextElementSibling;
-            videoEle.style.height = 250;
-            videoEle.style.width = 300;
-            flag = false;
-        }
+        startRecording();
 
-    })
-}, 5000);
 
+        let downloadButton = document.querySelector('.fa-download');
+        downloadButton.addEventListener('click', () => {
+            const blob = new Blob(recordedBlobs, { type: 'video/mp4' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.style.display = 'none';
+            a.href = url;
+            a.download = 'test.mp4';
+            document.body.appendChild(a);
+            a.click();
+            setTimeout(() => {
+                document.body.removeChild(a);
+                window.URL.revokeObjectURL(url);
+            }, 100);
+        });
+    }
+}
+
+
+
+const startRecording = () => {
+    recordedBlobs = [];
+    let options = { mimeType: 'video/webm;codecs=vp9,opus' };
+    try {
+        mediaRecorder = new MediaRecorder(window.stream, options);
+    } catch (e) {
+        return;
+    }
+
+    mediaRecorder.onstop = (event) => {
+        console.log('Recorder stopped: ', event);
+        console.log('Recorded Blobs: ', recordedBlobs);
+    };
+    mediaRecorder.ondataavailable = handleDataAvailable;
+    mediaRecorder.start();
+
+}
+
+const stopRecording = () => {
+    mediaRecorder.stop();
+}
+
+
+const handleDataAvailable = (event) => {
+    if (event.data && event.data.size > 0) {
+        recordedBlobs.push(event.data);
+    }
+}
+
+const resizeVideo = () => {
+    let parentNode = event.target.parentNode;
+    let resizeNode = event.target.parentNode.childNodes[3];
+    let allVideoNodes = [...document.getElementsByClassName('frame')];
+    if (!resizeStatus) {
+        resizeStatus = true;
+        allVideoNodes.forEach((videoFrame) => {
+            videoFrame.style.display = 'none'
+        });
+        parentNode.style.display = 'flex';
+        parentNode.style.width = '100vh';
+        parentNode.style.height = '100%';
+        resizeNode.style.width = '100%';
+        resizeNode.style.height = '100%';
+    }
+    else {
+        resizeStatus = false;
+        allVideoNodes.forEach((videoFrame) => {
+            videoFrame.style.display = 'flex'
+        });
+        parentNode.style.width = '300px';
+        parentNode.style.height = '250px';
+        resizeNode.style.width = '100%';
+        resizeNode.style.height = '100%';
+    }
+}

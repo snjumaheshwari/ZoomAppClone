@@ -15,44 +15,37 @@ body {
     height: 75vh;
   }
   
-  .self{
+  video{
     width: 300px;
     height: 250px;
-    position: relative;
-  }
-
-  video{
-    width: 100%;
-    height: 100%;
-    position: absolute;
     margin: 0;
     padding: 0;
   }
-  video::-webkit-media-controls-start-playback-button {
-    display: none!important;
-    -webkit-appearance: none;
-} 
+
+  #myVideoStream{
+    position: absolute;
+  }
 
 .avatar{
   display: none;
-  width: 100%;
-  height: 100%;
+  width: 300px;
+  height: 250px;
   background-color: rgb(219, 219, 219);
   justify-content:center;
   align-items: center;
   position: absolute;
   z-index: 100;
 }
+
 .avatar i{
   font-size:80px;
   color: black;
-
 }
 
 .frame{
-  position: absolute;
-  width: 100%;
-  height: 100%;
+  position: relative;
+  width: 300px;
+  height: 250px;
   padding: 0;
   margin: 0;
 }
@@ -61,7 +54,7 @@ body {
   position: absolute;
   bottom:0;
   right:0;
-  margin-bottom:15px;
+  margin-bottom:20px;
   margin-right: 10px;
   z-index: 1000;
   color: white;
@@ -71,6 +64,23 @@ body {
 
 .frame i:hover{
   transform: scale(1.2);
+}
+
+.frame i.fa-circle,
+.frame i.fa-pause{
+  margin-right: 40px;
+  color: red;
+  margin-bottom: 20px
+}
+
+.frame i.fa-pause{
+  color:white;
+}
+.frame i.fa-download{
+  display:none;
+  margin-right: 70px;
+  color:white;
+  margin-bottom: 20px;
 }
 
   p{
